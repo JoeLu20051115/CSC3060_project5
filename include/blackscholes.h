@@ -16,7 +16,7 @@ struct blackscholes_args {
     std::vector<float> rate;
     std::vector<float> volatility;
     std::vector<float> time;
-    double epsilon = 1e-2;
+    double epsilon = 5e-3;
     // TODO: You may want to add new params at the end...
 };
 

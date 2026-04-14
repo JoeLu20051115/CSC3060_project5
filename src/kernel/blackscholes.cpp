@@ -18,7 +18,7 @@ void initialize_blackscholes(blackscholes_args &args,
                              std::uint32_t seed) {
     args.call_option_price.assign(n, 0.0f);
     args.put_option_price.assign(n, 0.0f);
-    args.epsilon = 1e-2;
+    args.epsilon = 5e-3;
 
     args.spot_price.resize(n);
     args.strike.resize(n);
