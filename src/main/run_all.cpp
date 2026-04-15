@@ -8,6 +8,7 @@
 #include "bench.h"
 #include "bitwise.h"
 #include "blackscholes.h"
+#include "filter_gradient.h"
 #include "graph.h"
 #include "grff.h"
 #include "image_proc.h"
@@ -15,7 +16,6 @@
 #include "relu.h"
 #include "sparse_spmm.h"
 #include "trace_replay.h"
-#include "filter_gradient.h"
 
 #define GEOMETRIC_MEAN 1
 
@@ -54,16 +54,6 @@ int main() {
     std::cout << "\tTrace Replay: records=" << trace_args_naive.records.size()
               << ", trace_length=" << trace_args_naive.trace.size() << '\n';
 
-    const std::size_t WIDTH = 1024;
-    const std::size_t HEIGHT = 1024;
-    const std::uint_fast64_t FILTER_GRADIENT_SEED = 42;
-    filter_gradient_args filter_gradient_args_ref;
-    filter_gradient_args filter_gradient_args_stu;
-    initialize_filter_gradient(&filter_gradient_args_ref, WIDTH, HEIGHT, FILTER_GRADIENT_SEED);
-    initialize_filter_gradient(&filter_gradient_args_stu, WIDTH, HEIGHT, FILTER_GRADIENT_SEED);
-    std::cout << "\tFilter_gradient: width=" << WIDTH
-              << ", height=" << HEIGHT << '\n';
-
     constexpr std::size_t graph_node_count = 1024000;
     constexpr int graph_avg_degree = 8;
     graph_args graph_args_naive;
@@ -83,6 +73,15 @@ int main() {
     initialize_image_proc(&image_args_naive, image_width, image_height, seed);
     std::cout << "\tImage Proc: " << image_args_naive.width << " x "
               << image_args_naive.height << '\n';
+
+    const std::size_t WIDTH = 1024;
+    const std::size_t HEIGHT = 1024;
+    filter_gradient_args filter_gradient_args_ref;
+    initialize_filter_gradient(&filter_gradient_args_ref,
+                               WIDTH,
+                               HEIGHT,
+                               seed);
+    std::cout << "\tFilter Gradient: " << HEIGHT << " x " << WIDTH << '\n';
 
     std::vector<bench_t> benchmarks = {
         {"Black-Scholes (Naive)",
@@ -127,13 +126,6 @@ int main() {
          &trace_args_naive,
          &trace_args_naive,
          BASELINE_TRACE_REPLAY},
-        {"Filter Gradient (Naive)",
-         naive_filter_gradient_wrapper,
-         naive_filter_gradient_wrapper,
-         filter_gradient_check,
-         &filter_gradient_args_ref,
-         &filter_gradient_args_ref,
-         BASELINE_FILTER_GRADIENT},
         {"Graph (Naive)",
          naive_graph_wrapper,
          naive_graph_wrapper,
@@ -154,7 +146,14 @@ int main() {
          image_proc_check,
          &image_args_naive,
          &image_args_naive,
-         BASELINE_IMAGE_PROC}};
+         BASELINE_IMAGE_PROC},
+        {"Filter Gradient (Naive)",
+         naive_filter_gradient_wrapper,
+         naive_filter_gradient_wrapper,
+         filter_gradient_check,
+         &filter_gradient_args_ref,
+         &filter_gradient_args_ref,
+         BASELINE_FILTER_GRADIENT}};
 
     std::cout << "\nRunning Benchmarks...\n";
     std::cout
