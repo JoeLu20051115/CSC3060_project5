@@ -36,11 +36,11 @@ target_compile_options(kernels_bonus PRIVATE
 # ---------------------------------------------------------
 find_package(OpenMP)
 if(OpenMP_CXX_FOUND)
-    message(STATUS "🔥 Found OpenMP: Multi-threading enabled!")
+    message(STATUS "Found OpenMP: Multi-threading enabled!")
     # 现代 CMake 只需要 link 这个 target，就会自动处理 -fopenmp 等 flag
     target_link_libraries(kernels_bonus PRIVATE OpenMP::OpenMP_CXX)
 else()
-    message(WARNING "⚠️ OpenMP not found. Code will run on a single thread.")
+    message(WARNING "OpenMP not found. Code will run on a single thread.")
 endif()
 
 # ---------------------------------------------------------
@@ -50,10 +50,10 @@ find_library(OPENBLAS_LIB openblas)
 find_library(BLAS_LIB blas)
 
 if(OPENBLAS_LIB)
-    message(STATUS "🚀 Found OpenBLAS: ${OPENBLAS_LIB}")
+    message(STATUS "Found OpenBLAS: ${OPENBLAS_LIB}")
     set(BLAS_LIBS ${OPENBLAS_LIB})
 elseif(BLAS_LIB)
-    message(STATUS "🚀 Found BLAS: ${BLAS_LIB}")
+    message(STATUS "Found BLAS: ${BLAS_LIB}")
     set(BLAS_LIBS ${BLAS_LIB})
 endif()
 
@@ -61,7 +61,7 @@ if(BLAS_LIBS)
     target_compile_definitions(kernels_bonus PRIVATE BONUS_USE_BLAS)
     target_link_libraries(kernels_bonus PRIVATE ${BLAS_LIBS})
 else()
-    message(WARNING "⚠️ OpenBLAS/BLAS not found; bonus will compile without BLAS acceleration.")
+    message(WARNING "OpenBLAS/BLAS not found; bonus will compile without BLAS acceleration.")
 endif()
 
 # ---------------------------------------------------------
