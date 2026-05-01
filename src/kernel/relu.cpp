@@ -31,7 +31,15 @@ void naive_relu(std::span<float> data) {
 }
 
 void stu_relu(std::span<float> data) {
-    // TODO: Implement your version, and call it in stu_relu_wrapper
+    float* p = data.data();
+    size_t n = data.size();
+    
+    // 指导编译器进行循环展开以利于自动向量化
+    #pragma GCC unroll 8
+    for (size_t i = 0; i < n; ++i) {
+        // 使用无分支的 std::max 替代 if 跳转
+        p[i] = std::max(p[i], 0.0f);
+    }
 }
 
 void naive_relu_wrapper(void *ctx) {

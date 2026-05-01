@@ -21,26 +21,31 @@ struct data_struct {
     std::vector<float> i;
 };
 
+// 1. 定义缓存友好的新结构体 (AoS)
+struct PixelAoS {
+    float a, b, c, d, e, f, g, h, i;
+};
+
 struct filter_gradient_args {
     data_struct data; 
-    // TODO: You may want to add new params at the end...
-
+    
     std::size_t width;
     std::size_t height;
     float out;
     double epsilon;
 
+    // 2. 将预转换的新结构加入到 benchmark 上下文（不计入时间）
+    std::vector<PixelAoS> aos_data;
+
     explicit filter_gradient_args(double epsilon_in = 1e-6)
         : width(0), height(0), out(0.0f), epsilon(epsilon_in) {}
 };
 
-// TODO: You may need to add a function to convert data structure (not 
-// included in time measurement), then implement your version in 
-// stu_filter_gradient, whch is called by stu_filter_gradient_wrapper.
-
 void naive_filter_gradient(float& out, const data_struct& data,
                    std::size_t width, std::size_t height);
-void stu_filter_gradient(float& out, const data_struct& data,
+
+// 3. 修改 stu 签名：使用新结构
+void stu_filter_gradient(float& out, const std::vector<PixelAoS>& data,
                    std::size_t width, std::size_t height);
 
 void naive_filter_gradient_wrapper(void* ctx);
@@ -53,4 +58,4 @@ void initialize_filter_gradient(filter_gradient_args* args,
 
 bool filter_gradient_check(void* stu_ctx, void* ref_ctx, lab_test_func naive_func);
 
-#endif // filter_gradient_H
+#endif // FILTER_GRADIENT_H

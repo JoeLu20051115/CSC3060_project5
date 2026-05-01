@@ -2,6 +2,7 @@
 #define GRFF_H
 
 #include "bench.h"
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -19,7 +20,8 @@ struct grff_args {
     std::vector<float> f_output;
     
     double epsilon;
-    // TODO: You may want to add new params here
+    std::vector<float> buf_a_prime;
+    std::vector<float> buf_b_prime_base;
 
     explicit grff_args(double epsilon_in = 1e-5) : epsilon{epsilon_in} {}
 };

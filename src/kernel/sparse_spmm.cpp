@@ -217,11 +217,79 @@ void naive_sparse_spmm_wrapper(void *ctx) {
     csr_spmm(args.csr, args.dense_t, args.out);
 }
 
-// TODO: Implement your version (e.g. stu_csr_spmm), and call it in stu_sparse_spmm_wrapper
+// modified Sparse SpMM (Register Blocking)
+void stu_csr_spmm(const CSRMatrix &csr, const std::vector<float> &dense_t,
+                  std::vector<float> &out) {
+    const size_t rows = csr.rows;
+    const size_t cols = csr.cols;
+    const size_t dense_cols = dense_t.size() / cols;
+
+    for (size_t r = 0; r < rows; ++r) {
+        float *out_row = &out[r * dense_cols];
+        size_t n = 0;
+        
+        // seperate the register-blocked part and the tail part to handle cases where dense_cols is not a multiple of 8
+        for (; n + 7 < dense_cols; n += 8) {
+            float a0 = 0.0f, a1 = 0.0f, a2 = 0.0f, a3 = 0.0f;
+            float a4 = 0.0f, a5 = 0.0f, a6 = 0.0f, a7 = 0.0f;
+            
+            const float* b0 = &dense_t[(n + 0) * cols];
+            const float* b1 = &dense_t[(n + 1) * cols];
+            const float* b2 = &dense_t[(n + 2) * cols];
+            const float* b3 = &dense_t[(n + 3) * cols];
+            const float* b4 = &dense_t[(n + 4) * cols];
+            const float* b5 = &dense_t[(n + 5) * cols];
+            const float* b6 = &dense_t[(n + 6) * cols];
+            const float* b7 = &dense_t[(n + 7) * cols];
+            
+            const int p_start = csr.row_ptr[r];
+            const int p_end = csr.row_ptr[r + 1];
+            
+            for (int p = p_start; p < p_end; ++p) {
+                float v = csr.values[p];
+                int c = csr.col_idx[p];
+                
+                a0 += v * b0[c];
+                a1 += v * b1[c];
+                a2 += v * b2[c];
+                a3 += v * b3[c];
+                a4 += v * b4[c];
+                a5 += v * b5[c];
+                a6 += v * b6[c];
+                a7 += v * b7[c];
+            }
+            
+            out_row[n + 0] = a0;
+            out_row[n + 1] = a1;
+            out_row[n + 2] = a2;
+            out_row[n + 3] = a3;
+            out_row[n + 4] = a4;
+            out_row[n + 5] = a5;
+            out_row[n + 6] = a6;
+            out_row[n + 7] = a7;
+        }
+        
+        // deal with the tail part when dense_cols is not a multiple of 8
+        for (; n < dense_cols; ++n) {
+            float a = 0.0f;
+            const float* b = &dense_t[n * cols];
+            const int p_start = csr.row_ptr[r];
+            const int p_end = csr.row_ptr[r + 1];
+            
+            for (int p = p_start; p < p_end; ++p) {
+                a += csr.values[p] * b[csr.col_idx[p]];
+            }
+            out_row[n] = a;
+        }
+    }
+}
+
+// modified Sparse SpMM wrapper to call the new stu_csr_spmm
 void stu_sparse_spmm_wrapper(void *ctx) {
     auto &args = *static_cast<sparse_spmm_args *>(ctx);
-    csr_spmm(args.csr, args.dense_t, args.out);
+    stu_csr_spmm(args.csr, args.dense_t, args.out);
 }
+
 
 bool sparse_spmm_check(void *stu_ctx, void *ref_ctx, lab_test_func naive_func) {
     naive_func(ref_ctx);

@@ -23,23 +23,33 @@ struct Graph {
     Node* nodes;
 };
 
+// 1. 新增：缓存友好的 CSR 格式图结构
+struct CSRGraph {
+    int n;
+    const int* row_ptr;
+    const int* col_idx;
+};
+
 struct graph_args {
     Graph graph;
     std::vector<Node> nodes;
     std::vector<Edge> edge_storage;
     std::uint64_t out;
     double epsilon;
-    // TODO: You may want to add new params at the end...
+    
+    // 2. 在末尾追加 CSR 数据存储容器
+    std::vector<int> csr_row_ptr;
+    std::vector<int> csr_col_idx;
+    CSRGraph csr_graph;
 
     explicit graph_args(double epsilon_in = 1e-6)
-        : graph{0, nullptr}, out{0}, epsilon{epsilon_in} {}
+        : graph{0, nullptr}, out{0}, epsilon{epsilon_in}, csr_graph{0, nullptr, nullptr} {}
 };
 
 void naive_graph(std::uint64_t& out, const Graph& graph);
-// TODO: You may need to add a function to convert data structure (not 
-// included in time measurement), then implement your version in 
-// stu_graph, whch is called by stu_graph_wrapper.
-void stu_graph(std::uint64_t& out, const Graph& graph);
+
+// 3. 修改 stu_graph 签名：接收你的 CSRGraph
+void stu_graph(std::uint64_t& out, const CSRGraph& graph);
 
 void naive_graph_wrapper(void* ctx);
 void stu_graph_wrapper(void* ctx);

@@ -48,7 +48,42 @@ void stu_matmul(std::vector<float>& C,
                 const std::vector<float>& A,
                 const std::vector<float>& B,
                 int n) {
-    // TODO: Implement your version, and call it in stu_matmul_wrapper
+    // 确保每次都初始化 C 数组为 0
+    std::fill(C.begin(), C.end(), 0.0f);
+    
+    // 获取底层指针，去除 vector 访问开销
+    float* pC = C.data();
+    const float* pA = A.data();
+    const float* pB = B.data();
+
+    // 缓存块大小，通常 32 或 64 在 L1 Cache 表现最佳
+    const int BLOCK = 64; 
+
+    // 外层 3 个循环负责在矩阵上以 BLOCK 为步长移动“滑块”
+    for (int i = 0; i < n; i += BLOCK) {
+        for (int k = 0; k < n; k += BLOCK) {
+            for (int j = 0; j < n; j += BLOCK) {
+                
+                // 处理矩阵维度不能被 BLOCK 整除的边界情况
+                int i_end = std::min(i + BLOCK, n);
+                int k_end = std::min(k + BLOCK, n);
+                int j_end = std::min(j + BLOCK, n);
+
+                // 内层 3 个循环进行 IKJ 顺序的子块乘法计算
+                for (int ii = i; ii < i_end; ++ii) {
+                    for (int kk = k; kk < k_end; ++kk) {
+                        float a = pA[ii * n + kk];
+                        
+                        // 此时内层沿着 j 行走，pB 和 pC 的内存读取完全连续，预取器火力全开！
+                        for (int jj = j; jj < j_end; ++jj) {
+                            pC[ii * n + jj] += a * pB[kk * n + jj];
+                        }
+                    }
+                }
+                
+            }
+        }
+    }
 }
 
 void naive_matmul_wrapper(void* ctx) {
