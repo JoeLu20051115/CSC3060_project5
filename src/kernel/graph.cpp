@@ -75,22 +75,39 @@ void naive_graph(std::uint64_t& out, const Graph& graph) {
     out = checksum;
 }
 
-// 优化后的 Kernel (利用缓存友好的 CSR 数据结构)
 void stu_graph(std::uint64_t& out, const CSRGraph& graph) {
-    std::uint64_t checksum = 0;
-    const int n = graph.n;
-    const int* row_ptr = graph.row_ptr;
-    const int* col_idx = graph.col_idx;
+    // 使用 8 个独立的局部累加器，强迫 CPU 将它们分配到 8 个不同的硬件寄存器
+    // 这打破了数据依赖，CPU 的多个算术逻辑单元 (ALU) 可以同时执行 8 条加法指令！
+    std::uint64_t s0 = 0, s1 = 0, s2 = 0, s3 = 0;
+    std::uint64_t s4 = 0, s5 = 0, s6 = 0, s7 = 0;
+    
+    // 提取底层指针和总边数
+    const int* __restrict__ col = graph.col_idx;
+    // 在我们构建 CSR 时，row_ptr 的最后一个元素存的就是总边数
+    const int total_edges = graph.row_ptr[graph.n]; 
 
-    // 此时边数据已经是一段连续的内存了，硬件预取器会以极快的速度抓取数据
-    for (int u = 0; u < n; ++u) {
-        int start = row_ptr[u];
-        int end = row_ptr[u + 1];
-        for (int i = start; i < end; ++i) {
-            checksum += static_cast<std::uint64_t>(col_idx[i]);
-        }
+    int i = 0;
+    
+    // 将双层循环“拍平”为单层循环，彻底消除外层循环跳跃的开销
+    // 每次处理 8 条边，完美匹配缓存线与 ALU 吞吐量
+    for (; i + 7 < total_edges; i += 8) {
+        s0 += col[i];
+        s1 += col[i+1];
+        s2 += col[i+2];
+        s3 += col[i+3];
+        s4 += col[i+4];
+        s5 += col[i+5];
+        s6 += col[i+6];
+        s7 += col[i+7];
     }
-    out = checksum;
+    
+    // 处理末尾剩余的边
+    for (; i < total_edges; ++i) {
+        s0 += col[i];
+    }
+    
+    // 循环全部结束后，再将 8 个寄存器的值合并写回内存
+    out = s0 + s1 + s2 + s3 + s4 + s5 + s6 + s7;
 }
 
 void naive_graph_wrapper(void* ctx) {

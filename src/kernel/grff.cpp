@@ -52,9 +52,6 @@ void naive_grff(grff_args& args) {
     }
 }
 
-// -------------------------------------------------------------------------
-// Optimized Student Implementation (Loop Fusion)
-// -------------------------------------------------------------------------
 void stu_grff(grff_args& args) {
     const size_t n = args.a_features.size();
     const float* a = args.a_features.data();
@@ -69,15 +66,50 @@ void stu_grff(grff_args& args) {
 
     // 【第一趟融合循环】：融合了原版的 Stage 1, 2，并计算 Stage 3 需要的 sum
     // 同时提前算好 Stage 5 需要的 b * (1 - G) 部分，防止第二趟再次读取 B 数组
-    #pragma GCC unroll 4
-    for (size_t i = 0; i < n; ++i) {
+    // 手动循环展开 4 路
+    size_t i = 0;
+    for (; i + 3 < n; i += 4) {
+        float val_a0 = a[i], val_b0 = b[i];
+        float val_a1 = a[i+1], val_b1 = b[i+1];
+        float val_a2 = a[i+2], val_b2 = b[i+2];
+        float val_a3 = a[i+3], val_b3 = b[i+3];
+
+        float ab0 = val_a0 * val_b0;
+        float ab1 = val_a1 * val_b1;
+        float ab2 = val_a2 * val_b2;
+        float ab3 = val_a3 * val_b3;
+
+        float g0 = 0.5f * ((ab0 / (1.0f + std::abs(ab0))) + 1.0f);
+        float g1 = 0.5f * ((ab1 / (1.0f + std::abs(ab1))) + 1.0f);
+        float g2 = 0.5f * ((ab2 / (1.0f + std::abs(ab2))) + 1.0f);
+        float g3 = 0.5f * ((ab3 / (1.0f + std::abs(ab3))) + 1.0f);
+
+        float a_p0 = val_a0 + g0;
+        float a_p1 = val_a1 + g1;
+        float a_p2 = val_a2 + g2;
+        float a_p3 = val_a3 + g3;
+
+        a_prime[i] = a_p0;
+        a_prime[i+1] = a_p1;
+        a_prime[i+2] = a_p2;
+        a_prime[i+3] = a_p3;
+
+        b_prime_base[i] = val_b0 * (1.0f - g0);
+        b_prime_base[i+1] = val_b1 * (1.0f - g1);
+        b_prime_base[i+2] = val_b2 * (1.0f - g2);
+        b_prime_base[i+3] = val_b3 * (1.0f - g3);
+
+        sum_a += a_p0 + a_p1 + a_p2 + a_p3;
+    }
+    // 处理剩余元素
+    for (; i < n; ++i) {
         float val_a = a[i];
         float val_b = b[i];
         float ab = val_a * val_b;
-        
+
         float g = 0.5f * ((ab / (1.0f + std::abs(ab))) + 1.0f);
         float a_p = val_a + g;
-        
+
         a_prime[i] = a_p;
         b_prime_base[i] = val_b * (1.0f - g);
         sum_a += a_p;
@@ -91,25 +123,68 @@ void stu_grff(grff_args& args) {
 
     // 【第二趟融合循环】：融合了原版的 Stage 4, 5, 6, 7, 8, 9
     // 直接复用寄存器数据，不产生多余的中间向量写入
-    #pragma GCC unroll 4
-    for (size_t i = 0; i < n; ++i) {
+    // 手动循环展开 4 路
+    i = 0;
+    for (; i + 3 < n; i += 4) {
+        float curr_a_p0 = a_prime[i];
+        float curr_a_p1 = a_prime[i+1];
+        float curr_a_p2 = a_prime[i+2];
+        float curr_a_p3 = a_prime[i+3];
+
+        float smooth_a0 = (i == 0) ? curr_a_p0 : (curr_a_p0 + prev_a_p) * 0.5f;
+        float smooth_a1 = (curr_a_p1 + curr_a_p0) * 0.5f;
+        float smooth_a2 = (curr_a_p2 + curr_a_p1) * 0.5f;
+        float smooth_a3 = (curr_a_p3 + curr_a_p2) * 0.5f;
+        prev_a_p = curr_a_p3;
+
+        float denom0 = 1.0f + std::abs(smooth_a0);
+        float denom1 = 1.0f + std::abs(smooth_a1);
+        float denom2 = 1.0f + std::abs(smooth_a2);
+        float denom3 = 1.0f + std::abs(smooth_a3);
+
+        float b_p0 = b_prime_base[i] * avg_a;
+        float b_p1 = b_prime_base[i+1] * avg_a;
+        float b_p2 = b_prime_base[i+2] * avg_a;
+        float b_p3 = b_prime_base[i+3] * avg_a;
+
+        float c_p0 = c[i] + (smooth_a0 / denom0);
+        float c_p1 = c[i+1] + (smooth_a1 / denom1);
+        float c_p2 = c[i+2] + (smooth_a2 / denom2);
+        float c_p3 = c[i+3] + (smooth_a3 / denom3);
+
+        float h0 = smooth_a0 * c_p0;
+        float h1 = smooth_a1 * c_p1;
+        float h2 = smooth_a2 * c_p2;
+        float h3 = smooth_a3 * c_p3;
+
+        float e0 = (h0 + b_p0) / denom0;
+        float e1 = (h1 + b_p1) / denom1;
+        float e2 = (h2 + b_p2) / denom2;
+        float e3 = (h3 + b_p3) / denom3;
+
+        out[i] = std::max(c_p0 - e0, 0.0f);
+        out[i+1] = std::max(c_p1 - e1, 0.0f);
+        out[i+2] = std::max(c_p2 - e2, 0.0f);
+        out[i+3] = std::max(c_p3 - e3, 0.0f);
+    }
+    // 处理剩余元素
+    for (; i < n; ++i) {
         float curr_a_p = a_prime[i];
         float smooth_a = (i == 0) ? curr_a_p : (curr_a_p + prev_a_p) * 0.5f;
-        prev_a_p = curr_a_p; // 更新滑动窗口
+        prev_a_p = curr_a_p;
 
         float abs_smooth_a = std::abs(smooth_a);
         float denom = 1.0f + abs_smooth_a;
-        
+
         float b_p = b_prime_base[i] * avg_a;
         float c_p = c[i] + (smooth_a / denom);
-        
+
         float h = smooth_a * c_p;
         float e = (h + b_p) / denom;
-        
+
         out[i] = std::max(c_p - e, 0.0f);
     }
 }
-
 // -------------------------------------------------------------------------
 // Wrappers and Checker
 // -------------------------------------------------------------------------

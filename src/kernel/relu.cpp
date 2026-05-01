@@ -33,11 +33,21 @@ void naive_relu(std::span<float> data) {
 void stu_relu(std::span<float> data) {
     float* p = data.data();
     size_t n = data.size();
-    
-    // 指导编译器进行循环展开以利于自动向量化
-    #pragma GCC unroll 8
-    for (size_t i = 0; i < n; ++i) {
-        // 使用无分支的 std::max 替代 if 跳转
+
+    // 手动循环展开 8 路，保持性能
+    size_t i = 0;
+    for (; i + 7 < n; i += 8) {
+        p[i]   = std::max(p[i],   0.0f);
+        p[i+1] = std::max(p[i+1], 0.0f);
+        p[i+2] = std::max(p[i+2], 0.0f);
+        p[i+3] = std::max(p[i+3], 0.0f);
+        p[i+4] = std::max(p[i+4], 0.0f);
+        p[i+5] = std::max(p[i+5], 0.0f);
+        p[i+6] = std::max(p[i+6], 0.0f);
+        p[i+7] = std::max(p[i+7], 0.0f);
+    }
+    // 处理剩余元素
+    for (; i < n; ++i) {
         p[i] = std::max(p[i], 0.0f);
     }
 }

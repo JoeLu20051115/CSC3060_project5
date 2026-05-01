@@ -173,16 +173,73 @@ void stu_image_proc(image_proc_args& args) {
     const size_t n = w * h;
     static const float lut[] = {0.0f, 0.3f, 1.0f, 0.3f, 0.0f};
 
-    // 提示编译器进行循环展开和向量化
-    #pragma GCC unroll 4
-    for (size_t i = 0; i < n; ++i) {
-        // Stage 1: Inline color_correct (apply_gain -> apply_shift -> apply_limit)
+    // 手动循环展开 4 路，保持性能
+    size_t i = 0;
+    for (; i + 3 < n; i += 4) {
+        // 处理 4 个像素
+        for (int j = 0; j < 4; ++j) {
+            size_t idx = i + j;
+
+            // Stage 1: Inline color_correct
+            float rv = r[idx] * 1.05f + 0.02f;
+            float r_val = (rv > 1.0f) ? 1.0f : rv;
+
+            float gv = g[idx] * 1.05f + 0.02f;
+            float g_val = (gv > 1.0f) ? 1.0f : gv;
+
+            float bv = b[idx] * 1.05f + 0.02f;
+            float b_val = (bv > 1.0f) ? 1.0f : bv;
+
+            // Stage 2: Inline compute_gray
+            float gray = (r_val * 0.299f) + (g_val * 0.587f) + (b_val * 0.114f);
+
+            // Stage 3: Inline enhance_contrast
+            float adjusted = std::clamp((gray - 0.05f) / 0.90f, 0.0f, 1.0f);
+            float grayEnhance = adjusted * adjusted * (3.0f - 2.0f * adjusted);
+
+            // Stage 4: Inline hdr_compress & calculate_gain
+            float cv_input = grayEnhance * 1.2f;
+            float g1 = cv_input * 0.5f;
+            float g2 = g1 * g1 + 0.1f;
+            float g3 = std::sqrt(g2);
+            float gain = (g3 > 1.0f) ? (1.0f / g3) : (g3 * 0.95f);
+            float res = grayEnhance * gain;
+            float compress_val = res / (1.0f + res);
+
+            // Stage 5: Inline complex_mask_logic
+            float mask = 0.0f;
+            if (compress_val > threshold) {
+                mask = (r_val * 0.11f) + (g_val * 0.22f) - (b_val * 0.33f) + 1.01f;
+                if (mask > 0.8f) mask *= 0.44f;
+                else mask += 0.55f;
+            } else {
+                mask = (r_val * 0.66f) - (g_val * 0.77f) + (b_val * 0.88f) - 0.99f;
+                if (mask < 0.2f) mask += 0.22f;
+                else mask *= 0.33f;
+            }
+            float noise = std::sin(compress_val * 0.11f) * std::cos(r_val * 0.22f);
+            float final_val = (mask * 0.7f) + (noise * 0.3f);
+            mask = std::clamp(final_val, 0.0f, 1.0f);
+
+            // Stage 6: Inline importance_weight
+            float scaled = mask * 4.0f;
+            int idx_lut = std::clamp(static_cast<int>(scaled), 0, 4);
+            float weight = scaled - static_cast<float>(idx_lut);
+            float final_weight = (idx_lut < 4) ? (lut[idx_lut] * (1.0f - weight) + lut[idx_lut + 1] * weight) : lut[4];
+
+            // Output
+            out[idx] = std::clamp(compress_val * final_weight, 0.0f, 1.0f);
+        }
+    }
+    // 处理剩余元素
+    for (; i < n; ++i) {
+        // Stage 1: Inline color_correct
         float rv = r[i] * 1.05f + 0.02f;
         float r_val = (rv > 1.0f) ? 1.0f : rv;
-        
+
         float gv = g[i] * 1.05f + 0.02f;
         float g_val = (gv > 1.0f) ? 1.0f : gv;
-        
+
         float bv = b[i] * 1.05f + 0.02f;
         float b_val = (bv > 1.0f) ? 1.0f : bv;
 
@@ -219,9 +276,9 @@ void stu_image_proc(image_proc_args& args) {
 
         // Stage 6: Inline importance_weight
         float scaled = mask * 4.0f;
-        int idx = std::clamp(static_cast<int>(scaled), 0, 4);
-        float weight = scaled - static_cast<float>(idx);
-        float final_weight = (idx < 4) ? (lut[idx] * (1.0f - weight) + lut[idx + 1] * weight) : lut[4];
+        int idx_lut = std::clamp(static_cast<int>(scaled), 0, 4);
+        float weight = scaled - static_cast<float>(idx_lut);
+        float final_weight = (idx_lut < 4) ? (lut[idx_lut] * (1.0f - weight) + lut[idx_lut + 1] * weight) : lut[4];
 
         // Output
         out[i] = std::clamp(compress_val * final_weight, 0.0f, 1.0f);

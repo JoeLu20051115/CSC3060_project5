@@ -191,9 +191,44 @@ void stu_BlkSchls(std::vector<float> &CallOptionPrice,
     const float* vol = volatility.data();
     const float* tm = time.data();
 
-    // 手动循环展开(Loop Unrolling) 指引编译器
-    #pragma GCC unroll 4
-    for (size_t i = 0; i < n; ++i) {
+    // 手动循环展开 4 路
+    size_t i = 0;
+    for (; i + 3 < n; i += 4) {
+        // 处理 4 个元素
+        for (int j = 0; j < 4; ++j) {
+            size_t idx = i + j;
+            float s = spot[idx];
+            float k = strk[idx];
+            float r = rt[idx];
+            float v = vol[idx];
+            float t = tm[idx];
+
+            const float invSqrtTime = fast_inv_sqrt(t);
+            const float xSqrtTime = t * invSqrtTime;
+            const float xLogTerm = fast_log(s / k);
+            const float xPowerTerm = 0.5f * v * v;
+
+            float xD1 = (r + xPowerTerm) * t + xLogTerm;
+            const float xDen = v * xSqrtTime;
+            xD1 = xD1 / xDen;
+            const float xD2 = xD1 - xDen;
+
+            float NofXd1 = 0.0f;
+            float NofXd2 = 0.0f;
+
+            CNDF_fast(xD1, NofXd1);
+            CNDF_fast(xD2, NofXd2);
+
+            const float FutureValueX = k * fast_exp(-r * t);
+            call[idx] = (s * NofXd1) - (FutureValueX * NofXd2);
+
+            const float NegNofXd1 = 1.0f - NofXd1;
+            const float NegNofXd2 = 1.0f - NofXd2;
+            put[idx] = (FutureValueX * NegNofXd2) - (s * NegNofXd1);
+        }
+    }
+    // 处理剩余元素
+    for (; i < n; ++i) {
         float s = spot[i];
         float k = strk[i];
         float r = rt[i];
@@ -201,7 +236,7 @@ void stu_BlkSchls(std::vector<float> &CallOptionPrice,
         float t = tm[i];
 
         const float invSqrtTime = fast_inv_sqrt(t);
-        const float xSqrtTime = t * invSqrtTime; // x * (1/sqrt(x)) = sqrt(x)
+        const float xSqrtTime = t * invSqrtTime;
         const float xLogTerm = fast_log(s / k);
         const float xPowerTerm = 0.5f * v * v;
 
