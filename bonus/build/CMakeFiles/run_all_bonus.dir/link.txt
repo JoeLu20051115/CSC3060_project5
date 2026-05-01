@@ -1,1 +1,0 @@
-/usr/bin/c++  -O3 -mavx2 -mfma -ffast-math -Wall -g -fno-omit-frame-pointer CMakeFiles/run_all_bonus.dir/home/s124090411/banben1/src/main/run_all.cpp.o -o run_all_bonus  libkernels_bonus.a 
