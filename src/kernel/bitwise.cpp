@@ -59,52 +59,47 @@ void stu_bitwise(std::span<std::int8_t> result, std::span<const std::int8_t> a,
                  std::span<const std::int8_t> b) {
     const std::size_t n = std::min({result.size(), a.size(), b.size()});
     
-    // 扩展 8-bit masks 为 64-bit masks
-    constexpr std::uint64_t kMaskLo64 = 0x5A5A5A5A5A5A5A5AULL;
-    constexpr std::uint64_t kMaskHi64 = 0xC3C3C3C3C3C3C3C3ULL;
+    // 核心数学优化：布尔代数化简万能掩码
+    constexpr std::uint64_t K_MASK_1 = 0x2424242424242424ULL;
+    constexpr std::uint64_t K_MASK_E = 0x1818181818181818ULL;
+    constexpr std::uint64_t K_MASK_NE= 0x8181818181818181ULL;
 
-    const std::size_t chunk_count = n / 8;
-    const std::size_t remainder_start = chunk_count * 8;
+    auto* __restrict__ res = reinterpret_cast<std::uint64_t*>(result.data());
+    const auto* __restrict__ pa = reinterpret_cast<const std::uint64_t*>(a.data());
+    const auto* __restrict__ pb = reinterpret_cast<const std::uint64_t*>(b.data());
 
-    // 强制类型转换为 64 位指针
-    auto* res_ptr64 = reinterpret_cast<std::uint64_t*>(result.data());
-    const auto* a_ptr64 = reinterpret_cast<const std::uint64_t*>(a.data());
-    const auto* b_ptr64 = reinterpret_cast<const std::uint64_t*>(b.data());
+    std::size_t chunk_count = n / 8;
+    std::size_t i = 0;
 
-    // 核心循环：一次性处理 8 个元素
-    for (std::size_t i = 0; i < chunk_count; ++i) {
-        const std::uint64_t ua = a_ptr64[i];
-        const std::uint64_t ub = b_ptr64[i];
+    // 4 展开：每次处理 32 个 int8_t。由于指令极少，CPU 吞吐量将达到极限！
+    for (; i + 3 < chunk_count; i += 4) {
+        std::uint64_t e0 = pa[i]   | pb[i];
+        std::uint64_t e1 = pa[i+1] | pb[i+1];
+        std::uint64_t e2 = pa[i+2] | pb[i+2];
+        std::uint64_t e3 = pa[i+3] | pb[i+3];
 
-        const std::uint64_t shared = ua & ub;
-        const std::uint64_t either = ua | ub;
-        const std::uint64_t diff = ua ^ ub;
-        
-        const std::uint64_t mixed0 = (diff & kMaskLo64) | (~shared & ~kMaskLo64);
-        const std::uint64_t mixed1 = ((either ^ kMaskHi64) & (shared | ~kMaskHi64)) ^ diff;
-
-        res_ptr64[i] = mixed0 ^ mixed1;
+        res[i]   = K_MASK_1 | (e0 & K_MASK_E) | (~e0 & K_MASK_NE);
+        res[i+1] = K_MASK_1 | (e1 & K_MASK_E) | (~e1 & K_MASK_NE);
+        res[i+2] = K_MASK_1 | (e2 & K_MASK_E) | (~e2 & K_MASK_NE);
+        res[i+3] = K_MASK_1 | (e3 & K_MASK_E) | (~e3 & K_MASK_NE);
     }
 
-    // 尾部处理：处理不能凑成 8 个的剩余元素
-    constexpr std::uint8_t kMaskLo = 0x5Au;
-    constexpr std::uint8_t kMaskHi = 0xC3u;
-    
-    for (std::size_t i = remainder_start; i < n; ++i) {
-        const auto ua = static_cast<std::uint8_t>(a[i]);
-        const auto ub = static_cast<std::uint8_t>(b[i]);
+    // 剩余的 64 位块
+    for (; i < chunk_count; ++i) {
+        std::uint64_t e = pa[i] | pb[i];
+        res[i] = K_MASK_1 | (e & K_MASK_E) | (~e & K_MASK_NE);
+    }
 
-        const auto shared = static_cast<std::uint8_t>(ua & ub);
-        const auto either = static_cast<std::uint8_t>(ua | ub);
-        const auto diff = static_cast<std::uint8_t>(ua ^ ub);
-        const auto mixed0 =
-            static_cast<std::uint8_t>((diff & kMaskLo) | (~shared & ~kMaskLo));
-        const auto mixed1 = static_cast<std::uint8_t>(
-            ((either ^ kMaskHi) & (shared | ~kMaskHi)) ^ diff);
-
-        result[i] = static_cast<std::int8_t>(mixed0 ^ mixed1);
+    // 尾部处理 (处理剩下的不足 8 字节的单元素，使用 8 位掩码)
+    constexpr std::uint8_t k_1 = 0x24;
+    constexpr std::uint8_t k_E = 0x18;
+    constexpr std::uint8_t k_NE = 0x81;
+    for (std::size_t j = chunk_count * 8; j < n; ++j) {
+        std::uint8_t e = static_cast<std::uint8_t>(a[j] | b[j]);
+        result[j] = static_cast<std::int8_t>(k_1 | (e & k_E) | (~e & k_NE));
     }
 }
+
 
 void naive_bitwise_wrapper(void *ctx) {
     auto &args = *static_cast<bitwise_args *>(ctx);

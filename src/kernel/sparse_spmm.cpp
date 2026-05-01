@@ -224,62 +224,59 @@ void stu_csr_spmm(const CSRMatrix &csr, const std::vector<float> &dense_t,
     const size_t cols = csr.cols;
     const size_t dense_cols = dense_t.size() / cols;
 
-    for (size_t r = 0; r < rows; ++r) {
-        float *out_row = &out[r * dense_cols];
-        size_t n = 0;
-        
-        // seperate the register-blocked part and the tail part to handle cases where dense_cols is not a multiple of 8
-        for (; n + 7 < dense_cols; n += 8) {
-            float a0 = 0.0f, a1 = 0.0f, a2 = 0.0f, a3 = 0.0f;
-            float a4 = 0.0f, a5 = 0.0f, a6 = 0.0f, a7 = 0.0f;
+    float* __restrict__ p_out = out.data();
+    const float* __restrict__ p_dense = dense_t.data();
+    const float* __restrict__ p_val = csr.values.data();
+    const int* __restrict__ p_col = csr.col_idx.data();
+    const int* __restrict__ p_ptr = csr.row_ptr.data();
+
+    // 缓存分块大小 (Cache Blocking)
+    // 保证 16 行的 dense_t 完美驻留在 L1 极速缓存中！
+    constexpr size_t N_BLOCK = 16; 
+
+    // 外层循环：遍历 dense_t 的块
+    for (size_t n_blk = 0; n_blk < dense_cols; n_blk += N_BLOCK) {
+        size_t n_end = std::min(n_blk + N_BLOCK, dense_cols);
+
+        // 中层循环：复用驻留在缓存中的 dense_t 块
+        for (size_t r = 0; r < rows; ++r) {
+            float* __restrict__ out_row = p_out + r * dense_cols;
+            const int p_start = p_ptr[r];
+            const int p_end = p_ptr[r + 1];
+
+            size_t n = n_blk;
             
-            const float* b0 = &dense_t[(n + 0) * cols];
-            const float* b1 = &dense_t[(n + 1) * cols];
-            const float* b2 = &dense_t[(n + 2) * cols];
-            const float* b3 = &dense_t[(n + 3) * cols];
-            const float* b4 = &dense_t[(n + 4) * cols];
-            const float* b5 = &dense_t[(n + 5) * cols];
-            const float* b6 = &dense_t[(n + 6) * cols];
-            const float* b7 = &dense_t[(n + 7) * cols];
-            
-            const int p_start = csr.row_ptr[r];
-            const int p_end = csr.row_ptr[r + 1];
-            
-            for (int p = p_start; p < p_end; ++p) {
-                float v = csr.values[p];
-                int c = csr.col_idx[p];
-                
-                a0 += v * b0[c];
-                a1 += v * b1[c];
-                a2 += v * b2[c];
-                a3 += v * b3[c];
-                a4 += v * b4[c];
-                a5 += v * b5[c];
-                a6 += v * b6[c];
-                a7 += v * b7[c];
+            // 内层循环：4 展开获取指令级并行 (ILP)
+            for (; n + 3 < n_end; n += 4) {
+                float a0 = 0.0f, a1 = 0.0f, a2 = 0.0f, a3 = 0.0f;
+                const float* __restrict__ b0 = p_dense + (n + 0) * cols;
+                const float* __restrict__ b1 = p_dense + (n + 1) * cols;
+                const float* __restrict__ b2 = p_dense + (n + 2) * cols;
+                const float* __restrict__ b3 = p_dense + (n + 3) * cols;
+
+                for (int p = p_start; p < p_end; ++p) {
+                    float v = p_val[p];
+                    int c = p_col[p];
+                    a0 += v * b0[c];
+                    a1 += v * b1[c];
+                    a2 += v * b2[c];
+                    a3 += v * b3[c];
+                }
+                out_row[n + 0] = a0;
+                out_row[n + 1] = a1;
+                out_row[n + 2] = a2;
+                out_row[n + 3] = a3;
             }
-            
-            out_row[n + 0] = a0;
-            out_row[n + 1] = a1;
-            out_row[n + 2] = a2;
-            out_row[n + 3] = a3;
-            out_row[n + 4] = a4;
-            out_row[n + 5] = a5;
-            out_row[n + 6] = a6;
-            out_row[n + 7] = a7;
-        }
-        
-        // deal with the tail part when dense_cols is not a multiple of 8
-        for (; n < dense_cols; ++n) {
-            float a = 0.0f;
-            const float* b = &dense_t[n * cols];
-            const int p_start = csr.row_ptr[r];
-            const int p_end = csr.row_ptr[r + 1];
-            
-            for (int p = p_start; p < p_end; ++p) {
-                a += csr.values[p] * b[csr.col_idx[p]];
+
+            // 兜底尾部
+            for (; n < n_end; ++n) {
+                float a = 0.0f;
+                const float* __restrict__ b = p_dense + n * cols;
+                for (int p = p_start; p < p_end; ++p) {
+                    a += p_val[p] * b[p_col[p]];
+                }
+                out_row[n] = a;
             }
-            out_row[n] = a;
         }
     }
 }
