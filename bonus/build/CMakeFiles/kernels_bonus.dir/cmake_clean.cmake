@@ -1,0 +1,37 @@
+file(REMOVE_RECURSE
+  "CMakeFiles/kernels_bonus.dir/bitwise.cpp.o"
+  "CMakeFiles/kernels_bonus.dir/bitwise.cpp.o.d"
+  "CMakeFiles/kernels_bonus.dir/bonus_kernel.cpp.o"
+  "CMakeFiles/kernels_bonus.dir/bonus_kernel.cpp.o.d"
+  "CMakeFiles/kernels_bonus.dir/home/s124090411/CSC3060_project5/src/kernel/bitwise.cpp.o"
+  "CMakeFiles/kernels_bonus.dir/home/s124090411/CSC3060_project5/src/kernel/bitwise.cpp.o.d"
+  "CMakeFiles/kernels_bonus.dir/home/s124090411/CSC3060_project5/src/kernel/blackscholes.cpp.o"
+  "CMakeFiles/kernels_bonus.dir/home/s124090411/CSC3060_project5/src/kernel/blackscholes.cpp.o.d"
+  "CMakeFiles/kernels_bonus.dir/home/s124090411/CSC3060_project5/src/kernel/filter_gradient.cpp.o"
+  "CMakeFiles/kernels_bonus.dir/home/s124090411/CSC3060_project5/src/kernel/filter_gradient.cpp.o.d"
+  "CMakeFiles/kernels_bonus.dir/home/s124090411/CSC3060_project5/src/kernel/graph.cpp.o"
+  "CMakeFiles/kernels_bonus.dir/home/s124090411/CSC3060_project5/src/kernel/graph.cpp.o.d"
+  "CMakeFiles/kernels_bonus.dir/home/s124090411/CSC3060_project5/src/kernel/grff.cpp.o"
+  "CMakeFiles/kernels_bonus.dir/home/s124090411/CSC3060_project5/src/kernel/grff.cpp.o.d"
+  "CMakeFiles/kernels_bonus.dir/home/s124090411/CSC3060_project5/src/kernel/image_proc.cpp.o"
+  "CMakeFiles/kernels_bonus.dir/home/s124090411/CSC3060_project5/src/kernel/image_proc.cpp.o.d"
+  "CMakeFiles/kernels_bonus.dir/home/s124090411/CSC3060_project5/src/kernel/matmul.cpp.o"
+  "CMakeFiles/kernels_bonus.dir/home/s124090411/CSC3060_project5/src/kernel/matmul.cpp.o.d"
+  "CMakeFiles/kernels_bonus.dir/home/s124090411/CSC3060_project5/src/kernel/relu.cpp.o"
+  "CMakeFiles/kernels_bonus.dir/home/s124090411/CSC3060_project5/src/kernel/relu.cpp.o.d"
+  "CMakeFiles/kernels_bonus.dir/home/s124090411/CSC3060_project5/src/kernel/sparse_spmm.cpp.o"
+  "CMakeFiles/kernels_bonus.dir/home/s124090411/CSC3060_project5/src/kernel/sparse_spmm.cpp.o.d"
+  "CMakeFiles/kernels_bonus.dir/home/s124090411/CSC3060_project5/src/kernel/trace_replay.cpp.o"
+  "CMakeFiles/kernels_bonus.dir/home/s124090411/CSC3060_project5/src/kernel/trace_replay.cpp.o.d"
+  "CMakeFiles/kernels_bonus.dir/image_proc.cpp.o"
+  "CMakeFiles/kernels_bonus.dir/image_proc.cpp.o.d"
+  "CMakeFiles/kernels_bonus.dir/matmul.cpp.o"
+  "CMakeFiles/kernels_bonus.dir/matmul.cpp.o.d"
+  "libkernels_bonus.a"
+  "libkernels_bonus.pdb"
+)
+
+# Per-language clean rules from dependency scanning.
+foreach(lang CXX)
+  include(CMakeFiles/kernels_bonus.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()

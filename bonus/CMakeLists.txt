@@ -5,8 +5,8 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# 基础全局编译选项：O3、AVX2、FMA(融合乘加)、本机架构优化、极速数学、循环展开
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -mavx2 -mfma -march=native -mtune=native -ffast-math -funroll-loops -Wall")
+# 基础全局编译选项：启用 AVX-512 宽度偏好，强制开启 OpenMP 和极速数学
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -mprefer-vector-width=512 -ffast-math -funroll-loops -fopenmp")
 
 # 获取源文件
 file(GLOB KERNEL_SOURCES CONFIGURE_DEPENDS
@@ -20,6 +20,7 @@ file(GLOB BONUS_SOURCES CONFIGURE_DEPENDS
 # 构建静态库
 add_library(kernels_bonus STATIC ${KERNEL_SOURCES} ${BONUS_SOURCES})
 
+# 恢复正确的头文件包含路径
 target_include_directories(kernels_bonus
     PUBLIC
         "${CMAKE_SOURCE_DIR}/../include"
@@ -28,23 +29,17 @@ target_include_directories(kernels_bonus
 
 # 为 kernel 强行绑定所有极限优化指令
 target_compile_options(kernels_bonus PRIVATE
-    -O3 -mavx2 -mfma -march=native -mtune=native -ffast-math -funroll-loops -Wall
+    -O3 -march=native -mprefer-vector-width=512 -ffast-math -funroll-loops
 )
 
 # ---------------------------------------------------------
-# 终极杀器 1：寻找并链接 OpenMP (多线程并发榨干 CPU)
+# 寻找并链接 OpenMP
 # ---------------------------------------------------------
-find_package(OpenMP)
-if(OpenMP_CXX_FOUND)
-    message(STATUS "Found OpenMP: Multi-threading enabled!")
-    # 现代 CMake 只需要 link 这个 target，就会自动处理 -fopenmp 等 flag
-    target_link_libraries(kernels_bonus PRIVATE OpenMP::OpenMP_CXX)
-else()
-    message(WARNING "OpenMP not found. Code will run on a single thread.")
-endif()
+find_package(OpenMP REQUIRED)
+target_link_libraries(kernels_bonus PUBLIC OpenMP::OpenMP_CXX)
 
 # ---------------------------------------------------------
-# 终极杀器 2：寻找并链接 OpenBLAS (调用顶尖数学库)
+# 寻找并链接 OpenBLAS
 # ---------------------------------------------------------
 find_library(OPENBLAS_LIB openblas)
 find_library(BLAS_LIB blas)
@@ -65,22 +60,17 @@ else()
 endif()
 
 # ---------------------------------------------------------
-# 编译可执行文件
+# 编译可执行文件 (恢复为你原本正确的路径！)
 # ---------------------------------------------------------
 add_executable(run_all_bonus "${CMAKE_SOURCE_DIR}/../src/main/run_all.cpp")
-target_link_libraries(run_all_bonus PRIVATE kernels_bonus)
-if(OpenMP_CXX_FOUND)
-    target_link_libraries(run_all_bonus PRIVATE OpenMP::OpenMP_CXX)
-endif()
+# 必须把 OpenMP 链接到可执行文件，否则多线程可能无法拉起
+target_link_libraries(run_all_bonus PRIVATE kernels_bonus OpenMP::OpenMP_CXX)
 target_compile_options(run_all_bonus PRIVATE
-    -O3 -mavx2 -mfma -march=native -mtune=native -ffast-math -Wall
+    -O3 -march=native -mprefer-vector-width=512 -ffast-math
 )
 
 add_executable(single_bench_bonus "${CMAKE_SOURCE_DIR}/../src/main/single_bench.cpp")
-target_link_libraries(single_bench_bonus PRIVATE kernels_bonus)
-if(OpenMP_CXX_FOUND)
-    target_link_libraries(single_bench_bonus PRIVATE OpenMP::OpenMP_CXX)
-endif()
+target_link_libraries(single_bench_bonus PRIVATE kernels_bonus OpenMP::OpenMP_CXX)
 target_compile_options(single_bench_bonus PRIVATE
-    -O3 -mavx2 -mfma -march=native -mtune=native -ffast-math -Wall
+    -O3 -march=native -mprefer-vector-width=512 -ffast-math
 )

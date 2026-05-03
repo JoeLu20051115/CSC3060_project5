@@ -1,0 +1,5 @@
+/home/s124090411/CSC3060_project5/bonus/build/CMakeFiles/kernels_bonus.dir
+/home/s124090411/CSC3060_project5/bonus/build/CMakeFiles/run_all_bonus.dir
+/home/s124090411/CSC3060_project5/bonus/build/CMakeFiles/single_bench_bonus.dir
+/home/s124090411/CSC3060_project5/bonus/build/CMakeFiles/edit_cache.dir
+/home/s124090411/CSC3060_project5/bonus/build/CMakeFiles/rebuild_cache.dir

@@ -1,5 +1,0 @@
-/home/s124090411/banben1/bonus/build-bonus/CMakeFiles/kernels_bonus.dir
-/home/s124090411/banben1/bonus/build-bonus/CMakeFiles/run_all_bonus.dir
-/home/s124090411/banben1/bonus/build-bonus/CMakeFiles/single_bench_bonus.dir
-/home/s124090411/banben1/bonus/build-bonus/CMakeFiles/edit_cache.dir
-/home/s124090411/banben1/bonus/build-bonus/CMakeFiles/rebuild_cache.dir

@@ -1,0 +1,1 @@
+/usr/bin/c++  -O3 -march=native -mprefer-vector-width=512 -ffast-math -funroll-loops -fopenmp CMakeFiles/single_bench_bonus.dir/home/s124090411/CSC3060_project5/src/main/single_bench.cpp.o -o single_bench_bonus  libkernels_bonus.a /usr/lib/gcc/x86_64-linux-gnu/14/libgomp.so /usr/lib/x86_64-linux-gnu/libpthread.a 
